@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  # Serviço para a Empresa A
+  empresa_a:
+    build: .
+    container_name: empresa_a
+    environment:
+      - COMPANY_NAME=EmpresaA  # Nome da empresa A
+      - PORT=8080             # Porta interna do container
+      - MQTT_BROKER=mqtt_broker:1883  # Endereço do broker MQTT
+    ports:
+      - "8081:8080"  # Mapeia porta 8080 do container para 8081 no host
+    networks:
+      - default      # Conecta à rede padrão
+
+  # Serviço para a Empresa B
+  empresa_b:
+    build: .
+    container_name: empresa_b
+    environment:
+      - COMPANY_NAME=EmpresaB  # Nome da empresa B
+      - PORT=8080             # Porta interna do container
+      - MQTT_BROKER=mqtt_broker:1883  # Endereço do broker MQTT
+    ports:
+      - "8082:8080"  # Mapeia porta 8080 do container para 8082 no host
+    networks:
+      - default      # Conecta à rede padrão
+
+  # Serviço para a Empresa C
+  empresa_c:
+    build: .
+    container_name: empresa_c
+    environment:
+      - COMPANY_NAME=EmpresaC  # Nome da empresa C
+      - PORT=8080             # Porta interna do container
+      - MQTT_BROKER=mqtt_broker:1883  # Endereço do broker MQTT
+    ports:
+      - "8083:8080"  # Mapeia porta 8080 do container para 8083 no host
+    networks:
+      - default      # Conecta à rede padrão
+
+  # Serviço MQTT Broker usando Mosquitto
+  mqtt_broker:
+    image: eclipse-mosquitto:latest  # Imagem oficial do Mosquitto
+    container_name: mqtt_broker
+    ports:
+      - "1884:1883"  # Mapeia porta 1883 do container para 1884 no host
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf  # Monta arquivo de configuração
+    networks:
+      - default      # Conecta à rede padrão
+
+# Rede padrão para todos os serviços
+networks:
+  default:
+    driver: bridge
