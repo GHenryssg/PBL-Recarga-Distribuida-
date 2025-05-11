@@ -12,20 +12,22 @@ type Empresa struct {
 	Pontos []PontoRecarga `json:"pontos"`
 }
 
-type RequisicaoVeiculo struct {
-	VeiculoID string `json:"veiculo_id"`
-	Bateria   int    `json:"bateria"`
-	Local     string `json:"local"`
-	Destino   string `json:"destino"`
-}
-
-type RespostaServidor struct {
-	VeiculoID         string         `json:"veiculo_id"`
-	PontosDisponiveis []PontoRecarga `json:"pontos_disponiveis"`
-}
-
 type Rota struct {
     ID     string         `json:"id"`
     Nome   string         `json:"nome"`
     Pontos []PontoRecarga `json:"pontos"`
+}
+
+type PlanejamentoViagem struct {
+	Origem  string `json:"origem"`
+	Destino string `json:"destino"`
+}
+
+type PontoReserva struct {
+	ID      string `json:"id"`
+	Empresa string `json:"empresa"` // ainda sem uso
+}
+
+type SequenciaReserva struct {
+	Pontos []PontoReserva `json:"pontos"`
 }
