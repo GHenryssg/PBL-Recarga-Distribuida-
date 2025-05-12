@@ -4,20 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/config"
 	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/models"
 	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/services"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
-const (
-	brokerURL       = "tcp://localhost:1883"
-	topicSolicitacao = "veiculos/solicitacao"
-	topicResposta    = "veiculos/resposta/"
-)
-
-func StartMQTT() {
+func StartMQTT(brokerURL string) {
+	fmt.Printf("Iniciando cliente MQTT com ClientID: servidor-mqtt-%s\n", config.NomeEmpresa)
 	opts := mqtt.NewClientOptions().AddBroker(brokerURL)
-	opts.SetClientID("servidor-rede")
+	opts.SetClientID("servidor-mqtt-" + config.NomeEmpresa)
 
 	client := mqtt.NewClient(opts)
 
@@ -25,15 +21,13 @@ func StartMQTT() {
 		panic(token.Error())
 	}
 
-	// Escuta por requisições de viagem
-	client.Subscribe(topicSolicitacao, 0, func(client mqtt.Client, msg mqtt.Message) {
+	client.Subscribe("veiculos/solicitacao", 0, func(client mqtt.Client, msg mqtt.Message) {
 		var req models.RequisicaoVeiculo
 		if err := json.Unmarshal(msg.Payload(), &req); err != nil {
-			fmt.Println("Erro ao decodificar mensagem:", err)
+			fmt.Println("Erro ao decodificar MQTT:", err)
 			return
 		}
 
-		// Processa a rota e encontra pontos
 		pontos := services.BuscarPontosNaRota(req.Local, req.Destino)
 
 		resp := models.RespostaServidor{
@@ -42,10 +36,10 @@ func StartMQTT() {
 		}
 
 		payload, _ := json.Marshal(resp)
-		topic := topicResposta + req.VeiculoID
+		topic := "veiculos/resposta/" + req.VeiculoID
 
 		client.Publish(topic, 0, false, payload)
 
-		fmt.Printf("📨 Requisição de %s processada. Enviada para %s.\n", req.VeiculoID, topic)
+		fmt.Printf("📡 Respondido para %s\n", topic)
 	})
 }
