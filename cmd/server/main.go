@@ -1,29 +1,25 @@
 ﻿package main
 
 import (
+	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/config"
+	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/mqtt"
+	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/routes"
 	"github.com/gin-gonic/gin"
-	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/controllers"
 )
 
 func main() {
+	config.CarregarVariaveis()
+
+	// Use a variável global diretamente
+	go mqtt.StartMQTT(config.MQTTBrokerURL)
+
 	router := gin.Default()
 
-	// Rotas principais
-	router.GET("/health", controllers.HealthCheck)
+	// Configurar proxies confiáveis ou desativar o aviso
+	router.SetTrustedProxies(nil) // Desativa o aviso sobre proxies confiáveis
 
-	// Pontos de recarga
-	router.GET("/pontos", controllers.GetAllPoints)
-	router.POST("/pontos/reservar", controllers.PostPoints)
+	routes.ConfigurarRotas(router)
 
-	// Rotas
-	router.GET("/rotas", controllers.GetAllRoutes)
-	router.GET("/rotas/:id", controllers.GetRouteByID)
-
-	// Viagem
-	router.POST("/viagem/planejar", controllers.PlanTrip)
-	router.POST("/viagem/reservar", controllers.ReserveSequence)
-	router.POST("/viagem/cancelar", controllers.CancelReservation)
-
-	// Executar servidor
-	router.Run(":8080")
+	// Mesma coisa aqui: usar config.Porta diretamente
+	router.Run(":" + config.Porta)
 }
