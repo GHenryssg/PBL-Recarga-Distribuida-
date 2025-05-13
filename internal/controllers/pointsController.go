@@ -3,6 +3,7 @@ package controllers
 import (
     "net/http"
 
+    mqtt "github.com/eclipse/paho.mqtt.golang"
     "github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/services"
     "github.com/gin-gonic/gin"
 )
@@ -19,7 +20,17 @@ func PostPoints(c *gin.Context) {
         return
     }
 
-    reservados, indisponiveis, err := services.ReservePoints(ids)
+    // Configurar o cliente MQTT corretamente
+    opts := mqtt.NewClientOptions().AddBroker("tcp://localhost:1883")
+    mqttClient := mqtt.NewClient(opts)
+
+    if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"erro": "Erro ao conectar ao MQTT"})
+        return
+    }
+    defer mqttClient.Disconnect(250)
+
+    reservados, indisponiveis, err := services.ReservePoints(ids, mqttClient)
     if err != nil {
         c.JSON(http.StatusConflict, gin.H{"erro": err.Error()})
         return
