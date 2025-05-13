@@ -7,7 +7,7 @@ import (
 
 func ConfigurarRotas(router *gin.Engine) {
 	router.GET("/points", controllers.GetAllPoints)               // lista todos os pontos de recarga
-	router.POST("/reserve-points", controllers.PostPoints)       // reserva múltiplos pontos (por IDs)
+	router.POST("/reserve-points/:ids", controllers.PostPoints)       // reserva múltiplos pontos (por IDs)
 	router.GET("/routes", controllers.GetAllRoutes)              // lista todas as rotas cadastradas
 	router.GET("/routes/:id", controllers.GetRouteByID)          // obtém uma rota específica por ID
 	router.POST("/plan-trip", controllers.PlanTrip)              // retorna pontos disponíveis entre origem e destino
