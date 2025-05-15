@@ -11,7 +11,7 @@ services:
       - EMPRESA_B_URL=http://localhost:8086
       - EMPRESA_C_URL=http://localhost:8087
     ports:
-      - "8081:8080"
+      - "8081:8085"
     networks:
       - default
     depends_on:
@@ -31,7 +31,7 @@ services:
       - EMPRESA_B_URL=http://localhost:8086
       - EMPRESA_C_URL=http://localhost:8087
     ports:
-      - "8082:8080"
+      - "8082:8086"
     networks:
       - default
     depends_on:
@@ -51,7 +51,7 @@ services:
       - EMPRESA_B_URL=http://localhost:8086
       - EMPRESA_C_URL=http://localhost:8087
     ports:
-      - "8083:8080"
+      - "8083:8087"
     networks:
       - default
     depends_on:

@@ -10,8 +10,8 @@ import (
 )
 
 func GetAllPoints(c *gin.Context) {
-    points := services.GetAllPoints()
-    c.JSON(http.StatusOK, points)
+	points := services.GetAllPoints()
+	c.JSON(http.StatusOK, points)
 }
 
 func PostPoints(c *gin.Context) {
@@ -28,7 +28,7 @@ func PostPoints(c *gin.Context) {
 	}
 
 	// Configurar o cliente MQTT corretamente
-	opts := mqtt.NewClientOptions().AddBroker("tcp://localhost:1883")
+	opts := mqtt.NewClientOptions().AddBroker("tcp://mqtt_broker:1883")
 	mqttClient := mqtt.NewClient(opts)
 
 	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {

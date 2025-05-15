@@ -13,6 +13,9 @@ func main() {
 	// Use a variável global diretamente
 	go mqtt.StartMQTT(config.MQTTBrokerURL)
 
+	// Iniciar o serviço de resposta de pontos MQTT
+	go mqtt.StartPointResponder(config.MQTTBrokerURL)
+
 	router := gin.Default()
 
 	// Configurar proxies confiáveis ou desativar o aviso
