@@ -1,0 +1,75 @@
+services:
+  # Serviço para a Empresa A
+  empresa_a:
+    build: .
+    container_name: empresa_a
+    environment:
+      - NOME_EMPRESA=empresa_a  # Sobrescreve o valor do .env
+      - PORTA=8085             # Sobrescreve o valor do .env
+      - MQTT_BROKER=tcp://mqtt_broker:1883
+      - EMPRESA_A_URL=http://localhost:8085
+      - EMPRESA_B_URL=http://localhost:8086
+      - EMPRESA_C_URL=http://localhost:8087
+    ports:
+      - "8081:8080"
+    networks:
+      - default
+    depends_on:
+      - mqtt_broker
+    volumes:
+      - ./.env:/app/.env
+
+  # Serviço para a Empresa B
+  empresa_b:
+    build: .
+    container_name: empresa_b
+    environment:
+      - NOME_EMPRESA=empresa_b  # Sobrescreve o valor do .env
+      - PORTA=8086             # Sobrescreve o valor do .env
+      - MQTT_BROKER=tcp://mqtt_broker:1883
+      - EMPRESA_A_URL=http://localhost:8085
+      - EMPRESA_B_URL=http://localhost:8086
+      - EMPRESA_C_URL=http://localhost:8087
+    ports:
+      - "8082:8080"
+    networks:
+      - default
+    depends_on:
+      - mqtt_broker
+    volumes:
+      - ./.env:/app/.env
+
+  # Serviço para a Empresa C
+  empresa_c:
+    build: .
+    container_name: empresa_c
+    environment:
+      - NOME_EMPRESA=empresa_c  # Sobrescreve o valor do .env
+      - PORTA=8087             # Sobrescreve o valor do .env
+      - MQTT_BROKER=tcp://mqtt_broker:1883
+      - EMPRESA_A_URL=http://localhost:8085
+      - EMPRESA_B_URL=http://localhost:8086
+      - EMPRESA_C_URL=http://localhost:8087
+    ports:
+      - "8083:8080"
+    networks:
+      - default
+    depends_on:
+      - mqtt_broker
+    volumes:
+      - ./.env:/app/.env
+
+  # Serviço MQTT Broker usando Mosquitto
+  mqtt_broker:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt_broker
+    ports:
+      - "1884:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
