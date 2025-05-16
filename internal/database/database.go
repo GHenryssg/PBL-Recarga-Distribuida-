@@ -5,37 +5,37 @@ import (
 )
 
 var Empresas = []models.Empresa{
-    {
-        ID:   "1",
-        Nome: "HenryVolt",
-        Pontos: []models.PontoRecarga{
-            {ID: "1", Localizacao: "Feira de Santana", Disponivel: true},
-            {ID: "2", Localizacao: "Salvador", Disponivel: true},
-        },
-    },
-    {
-        ID:   "2",
-        Nome: "LaizaCharge",
-        Pontos: []models.PontoRecarga{
-            {ID: "3", Localizacao: "Valente", Disponivel: true},
-            {ID: "4", Localizacao: "Santaluz", Disponivel: true},
-        },
-    },
-    {
-        ID:   "3",
-        Nome: "MarioPower",
-        Pontos: []models.PontoRecarga{
-            {ID: "5", Localizacao: "Amargosa", Disponivel: true},
-        },
-    },
+	{
+		ID:   "1",
+		Nome: "HenryVolt",
+		Pontos: []models.PontoRecarga{
+			{ID: "1", Localizacao: "Feira de Santana", Disponivel: true, EmpresaID: "1"},
+			{ID: "2", Localizacao: "Salvador", Disponivel: true, EmpresaID: "1"},
+		},
+	},
+	{
+		ID:   "2",
+		Nome: "LaizaCharge",
+		Pontos: []models.PontoRecarga{
+			{ID: "3", Localizacao: "Valente", Disponivel: true, EmpresaID: "2"},
+			{ID: "4", Localizacao: "Santaluz", Disponivel: true, EmpresaID: "2"},
+		},
+	},
+	{
+		ID:   "3",
+		Nome: "MarioPower",
+		Pontos: []models.PontoRecarga{
+			{ID: "5", Localizacao: "Amargosa", Disponivel: true, EmpresaID: "3"},
+		},
+	},
 }
 
 var Pontos = []models.PontoRecarga{
-	{ID: "1", Localizacao: "Feira de Santana", Disponivel: true},
-	{ID: "2", Localizacao: "Salvador", Disponivel: true},
-	{ID: "3", Localizacao: "Valente", Disponivel: true},
-	{ID: "4", Localizacao: "Santaluz", Disponivel: true},
-	{ID: "5", Localizacao: "Amargosa", Disponivel: true},
+	{ID: "1", Localizacao: "Feira de Santana", Disponivel: true, EmpresaID: "1"},
+	{ID: "2", Localizacao: "Salvador", Disponivel: true, EmpresaID: "1"},
+	{ID: "3", Localizacao: "Valente", Disponivel: true, EmpresaID: "2"},
+	{ID: "4", Localizacao: "Santaluz", Disponivel: true, EmpresaID: "2"},
+	{ID: "5", Localizacao: "Amargosa", Disponivel: true, EmpresaID: "3"},
 }
 
 var Rotas = []models.Rota{
@@ -43,43 +43,43 @@ var Rotas = []models.Rota{
 		ID:   "1",
 		Nome: "Rota Feira de Santana - Salvador",
 		Pontos: []models.PontoRecarga{
-			{ID: "1", Localizacao: "Feira de Santana", Disponivel: true},
-			{ID: "2", Localizacao: "Salvador", Disponivel: true},
+			{ID: "1", Localizacao: "Feira de Santana", Disponivel: true, EmpresaID: "1"},
+			{ID: "2", Localizacao: "Salvador", Disponivel: true, EmpresaID: "1"},
 		},
 	},
 	{
 		ID:   "2",
 		Nome: "Rota Salvador - Camaçari",
 		Pontos: []models.PontoRecarga{
-			{ID: "2", Localizacao: "Salvador", Disponivel: true},
-			{ID: "3", Localizacao: "Camaçari", Disponivel: true},
+			{ID: "2", Localizacao: "Salvador", Disponivel: true, EmpresaID: "1"},
+			{ID: "3", Localizacao: "Camaçari", Disponivel: true, EmpresaID: ""},
 		},
 	},
 	{
 		ID:   "3",
 		Nome: "Rota Feira de Santana  - Santaluz",
 		Pontos: []models.PontoRecarga{
-			{ID: "1", Localizacao: "Feira de Santana", Disponivel: true},
-			{ID: "3", Localizacao: "Valente", Disponivel: true},
-			{ID: "4", Localizacao: "Santaluz", Disponivel: true},
+			{ID: "1", Localizacao: "Feira de Santana", Disponivel: true, EmpresaID: "1"},
+			{ID: "3", Localizacao: "Valente", Disponivel: true, EmpresaID: "2"},
+			{ID: "4", Localizacao: "Santaluz", Disponivel: true, EmpresaID: "2"},
 		},
 	},
 	{
 		ID:   "4",
 		Nome: "Rota Salvador - Feira de Santana",
 		Pontos: []models.PontoRecarga{
-			{ID: "2", Localizacao: "Salvador", Disponivel: true},
-			{ID: "5", Localizacao: "Amargosa", Disponivel: true},
-			{ID: "1", Localizacao: "Feira de Santana", Disponivel: true},
+			{ID: "2", Localizacao: "Salvador", Disponivel: true, EmpresaID: "1"},
+			{ID: "5", Localizacao: "Amargosa", Disponivel: true, EmpresaID: "3"},
+			{ID: "1", Localizacao: "Feira de Santana", Disponivel: true, EmpresaID: "1"},
 		},
 	},
 	{
 		ID:   "5",
 		Nome: "Rota Valente - Amargosa",
 		Pontos: []models.PontoRecarga{
-			{ID: "3", Localizacao: "Valente", Disponivel: true},
-			{ID: "4", Localizacao: "Santaluz", Disponivel: true},
-			{ID: "5", Localizacao: "Amargosa", Disponivel: true},
+			{ID: "3", Localizacao: "Valente", Disponivel: true, EmpresaID: "2"},
+			{ID: "4", Localizacao: "Santaluz", Disponivel: true, EmpresaID: "2"},
+			{ID: "5", Localizacao: "Amargosa", Disponivel: true, EmpresaID: "3"},
 		},
 	},
 }

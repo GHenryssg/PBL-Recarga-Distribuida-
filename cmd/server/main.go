@@ -2,7 +2,7 @@
 
 import (
 	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/config"
-	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/mqtt"
+	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/client"
 	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/routes"
 	"github.com/gin-gonic/gin"
 )
