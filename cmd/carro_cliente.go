@@ -23,6 +23,12 @@ type Rota struct {
 	Pontos []PontoRecarga `json:"pontos"`
 }
 
+	// Função auxiliar para converter um slice em JSON
+	func toJSON(data interface{}) string {
+		bytes, _ := json.Marshal(data)
+		return string(bytes)
+	}
+
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	servidor := os.Getenv("SERVER_URL")
@@ -45,15 +51,15 @@ func main() {
 		fmt.Printf("%d - %s\n", i+1, r.Nome)
 	}
 
-	// 2. Sortear uma rota
+	// 2. Escolhe uma rota
 	rota := rotas[rand.Intn(len(rotas))]
-	fmt.Printf("\nRota sorteada: %s\n", rota.Nome)
+	fmt.Printf("\nRota escolhida: %s\n", rota.Nome)
 	fmt.Println("Pontos dessa rota:")
 	for i, p := range rota.Pontos {
 		fmt.Printf("%d - %s (%s) [Disponível: %v]\n", i+1, p.ID, p.Localizacao, p.Disponivel)
 	}
 
-	// 3. Escolher um ponto disponível aleatório
+	// 3. Escolher até 3 pontos disponíveis aleatórios
 	var pontosDisponiveis []PontoRecarga
 	for _, p := range rota.Pontos {
 		if p.Disponivel {
@@ -64,29 +70,59 @@ func main() {
 		fmt.Println("Nenhum ponto disponível para reservar nesta rota!")
 		return
 	}
-	pontoEscolhido := pontosDisponiveis[rand.Intn(len(pontosDisponiveis))]
-	fmt.Printf("\nPonto escolhido: %s (%s)\n", pontoEscolhido.ID, pontoEscolhido.Localizacao)
 
-	// 4. Reservar o ponto via HTTP
-	urlReserva := fmt.Sprintf("%s/reserve-points/%s", servidor, pontoEscolhido.ID)
-	req, _ := http.NewRequest("POST", urlReserva, nil)
-	respReserva, err := http.DefaultClient.Do(req)
-	if err != nil {
-		panic(err)
+	// Selecionar até 3 pontos aleatórios
+	numReservas := 3
+	if len(pontosDisponiveis) < numReservas {
+		numReservas = len(pontosDisponiveis)
 	}
-	defer respReserva.Body.Close()
-	var resultado map[string]interface{}
-	json.NewDecoder(respReserva.Body).Decode(&resultado)
-	fmt.Printf("Resultado da reserva: %v\n", resultado)
+	pontosEscolhidos := pontosDisponiveis[:numReservas]
+	fmt.Println("\nPontos escolhidos:")
+	for _, ponto := range pontosEscolhidos {
+		fmt.Printf("- %s (%s)\n", ponto.ID, ponto.Localizacao)
+	}
 
-	// 5. Simular viagem
-	duracao := rand.Intn(10) + 10 // 3 a 7 segundos
-	fmt.Printf("Simulando viagem por %d segundos...\n", duracao)
-	time.Sleep(time.Duration(duracao) * time.Second)
+	//Fazer verificação se os pontos escolhidos estão disponíveis e mostrar sua disponibilidade nas outras empresas
 
-	// 6. Liberar o ponto (cancelar reserva)
+	// 4. Reservar os pontos via HTTP
+	for _, pontoEscolhido := range pontosEscolhidos {
+		urlReserva := fmt.Sprintf("%s/reserve-points/%s", servidor, pontoEscolhido.ID)
+		req, _ := http.NewRequest("POST", urlReserva, nil)
+		respReserva, err := http.DefaultClient.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		defer respReserva.Body.Close()
+		var resultado map[string]interface{}
+		json.NewDecoder(respReserva.Body).Decode(&resultado)
+		fmt.Printf("Resultado da reserva para o ponto %s: %v\n", pontoEscolhido.ID, resultado)
+	}
+
+	// 5. Simular viagem em partes
+    fmt.Println("\nIniciando a viagem...")
+    for i := 0; i < len(pontosEscolhidos); i++ {
+        var origem, destino string
+        if i == 0 {
+            origem = "Início da rota"
+        } else {
+            origem = pontosEscolhidos[i-1].Localizacao
+        }
+        destino = pontosEscolhidos[i].Localizacao
+
+        duracao := rand.Intn(3) + 7 // Tempo entre 3 e 7 segundos para cada trecho
+        fmt.Printf("Viajando de %s para %s...\n", origem, destino)
+        time.Sleep(time.Duration(duracao) * time.Second)
+        fmt.Printf("Chegou em %s!\n", destino)
+    }
+    fmt.Println("Viagem concluída!")
+
+	// 6. Liberar os pontos (cancelar reservas)
 	urlCancel := fmt.Sprintf("%s/cancel-reservation", servidor)
-	body := fmt.Sprintf(`{"ids":["%s"]}`, pontoEscolhido.ID)
+	ids := make([]string, len(pontosEscolhidos))
+	for i, ponto := range pontosEscolhidos {
+		ids[i] = ponto.ID
+	}
+	body := fmt.Sprintf(`{"ids":%s}`, toJSON(ids))
 	respCancel, err := http.Post(urlCancel, "application/json", strings.NewReader(body))
 	if err != nil {
 		panic(err)
@@ -94,5 +130,7 @@ func main() {
 	defer respCancel.Body.Close()
 	var cancelResult map[string]interface{}
 	json.NewDecoder(respCancel.Body).Decode(&cancelResult)
-	fmt.Printf("Ponto liberado: %v\n", cancelResult)
+	fmt.Printf("Pontos liberados: %v\n", cancelResult)
+
+
 }
