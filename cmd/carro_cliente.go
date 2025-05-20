@@ -23,11 +23,11 @@ type Rota struct {
 	Pontos []PontoRecarga `json:"pontos"`
 }
 
-	// Função auxiliar para converter um slice em JSON
-	func toJSON(data interface{}) string {
-		bytes, _ := json.Marshal(data)
-		return string(bytes)
-	}
+// Função auxiliar para converter um slice em JSON
+func toJSON(data interface{}) string {
+	bytes, _ := json.Marshal(data)
+	return string(bytes)
+}
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
@@ -84,37 +84,54 @@ func main() {
 
 	//Fazer verificação se os pontos escolhidos estão disponíveis e mostrar sua disponibilidade nas outras empresas
 
-	// 4. Reservar os pontos via HTTP
-	for _, pontoEscolhido := range pontosEscolhidos {
-		urlReserva := fmt.Sprintf("%s/reserve-points/%s", servidor, pontoEscolhido.ID)
-		req, _ := http.NewRequest("POST", urlReserva, nil)
-		respReserva, err := http.DefaultClient.Do(req)
-		if err != nil {
-			panic(err)
-		}
-		defer respReserva.Body.Close()
-		var resultado map[string]interface{}
-		json.NewDecoder(respReserva.Body).Decode(&resultado)
-		fmt.Printf("Resultado da reserva para o ponto %s: %v\n", pontoEscolhido.ID, resultado)
+	// 4. Reservar os pontos via HTTP (requisição atômica, apenas exibe o resultado)
+	idsParaReservar := []string{}
+	for _, ponto := range pontosEscolhidos {
+		idsParaReservar = append(idsParaReservar, ponto.ID)
+	}
+	fmt.Printf("\nTentando reservar os pontos: %v\n", idsParaReservar)
+	urlReserva := fmt.Sprintf("%s/reserve-points/%s", servidor, strings.Join(idsParaReservar, ","))
+	req, _ := http.NewRequest("POST", urlReserva, nil)
+	respReserva, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Printf("Erro ao reservar pontos: %v\n", err)
+		return
+	}
+	defer respReserva.Body.Close()
+	var resultado map[string]interface{}
+	json.NewDecoder(respReserva.Body).Decode(&resultado)
+	fmt.Println("\nResultado da reserva:")
+	if reservados, ok := resultado["reservados"]; ok {
+		fmt.Printf("  Reservados: %v\n", reservados)
+	}
+	if indisponiveis, ok := resultado["indisponiveis"]; ok {
+		fmt.Printf("  Indisponíveis: %v\n", indisponiveis)
+	}
+	if erro, ok := resultado["erro"]; ok {
+		fmt.Printf("  Erro: %v\n", erro)
+	}
+	if _, ok := resultado["reservados"]; !ok {
+		fmt.Println("Nenhum ponto foi reservado. Encerrando fluxo.")
+		return
 	}
 
 	// 5. Simular viagem em partes
-    fmt.Println("\nIniciando a viagem...")
-    for i := 0; i < len(pontosEscolhidos); i++ {
-        var origem, destino string
-        if i == 0 {
-            origem = "Início da rota"
-        } else {
-            origem = pontosEscolhidos[i-1].Localizacao
-        }
-        destino = pontosEscolhidos[i].Localizacao
+	fmt.Println("\nIniciando a viagem...")
+	for i := 0; i < len(pontosEscolhidos); i++ {
+		var origem, destino string
+		if i == 0 {
+			origem = "Início da rota"
+		} else {
+			origem = pontosEscolhidos[i-1].Localizacao
+		}
+		destino = pontosEscolhidos[i].Localizacao
 
-        duracao := rand.Intn(3) + 7 // Tempo entre 3 e 7 segundos para cada trecho
-        fmt.Printf("Viajando de %s para %s...\n", origem, destino)
-        time.Sleep(time.Duration(duracao) * time.Second)
-        fmt.Printf("Chegou em %s!\n", destino)
-    }
-    fmt.Println("Viagem concluída!")
+		duracao := rand.Intn(3) + 7 // Tempo entre 3 e 7 segundos para cada trecho
+		fmt.Printf("Viajando de %s para %s...\n", origem, destino)
+		time.Sleep(time.Duration(duracao) * time.Second)
+		fmt.Printf("Chegou em %s!\n", destino)
+	}
+	fmt.Println("Viagem concluída!")
 
 	// 6. Liberar os pontos (cancelar reservas)
 	urlCancel := fmt.Sprintf("%s/cancel-reservation", servidor)
@@ -131,6 +148,4 @@ func main() {
 	var cancelResult map[string]interface{}
 	json.NewDecoder(respCancel.Body).Decode(&cancelResult)
 	fmt.Printf("Pontos liberados: %v\n", cancelResult)
-
-
 }

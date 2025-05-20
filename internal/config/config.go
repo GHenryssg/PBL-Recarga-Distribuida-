@@ -17,7 +17,7 @@ var (
 )
 
 func CarregarVariaveis() {
-	// Tente carregar o .env no diretório atual
+	// Tente carregar o .env no diretório atual, mas NÃO sobrescreva variáveis já definidas no ambiente
 	err := godotenv.Load(".env")
 	if err != nil {
 		// Se não encontrar, tente carregar o .env no caminho do Docker

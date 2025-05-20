@@ -2,12 +2,11 @@ package services
 
 import (
 	"errors"
-	"fmt"
 
+	mqtt "github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/client"
 	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/config"
 	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/database"
 	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/models"
-	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/client"
 )
 
 func GetAllPoints() []models.PontoRecarga {
@@ -16,7 +15,35 @@ func GetAllPoints() []models.PontoRecarga {
 
 func isPontoDaEmpresa(ponto models.PontoRecarga) bool {
 	idEsperado := config.EmpresaNomeParaID[config.NomeEmpresa]
-	return ponto.EmpresaID == config.NomeEmpresa || ponto.EmpresaID == idEsperado
+	// Comparação robusta: aceita tanto nome quanto ID numérico
+	match := ponto.EmpresaID == config.NomeEmpresa || ponto.EmpresaID == idEsperado
+	if !match {
+		println("[DEBUG] isPontoDaEmpresa: ponto.EmpresaID=", ponto.EmpresaID, "config.NomeEmpresa=", config.NomeEmpresa, "idEsperado=", idEsperado, "-> NÃO É DA EMPRESA LOCAL")
+	} else {
+		println("[DEBUG] isPontoDaEmpresa: ponto.EmpresaID=", ponto.EmpresaID, "config.NomeEmpresa=", config.NomeEmpresa, "idEsperado=", idEsperado, "-> É DA EMPRESA LOCAL")
+	}
+	return match
+}
+
+// Atualiza o campo Disponivel nas rotas sempre que um ponto é reservado ou liberado
+func AtualizarDisponibilidadeNasRotas(pontoID string, disponivel bool) {
+	for r := range database.Rotas {
+		for p := range database.Rotas[r].Pontos {
+			if database.Rotas[r].Pontos[p].ID == pontoID {
+				database.Rotas[r].Pontos[p].Disponivel = disponivel
+			}
+		}
+	}
+}
+
+// Função auxiliar para buscar o nome da empresa a partir do ID
+func getEmpresaNomeDoID(id string) string {
+	for nome, num := range config.EmpresaNomeParaID {
+		if num == id {
+			return nome
+		}
+	}
+	return id // fallback
 }
 
 func ReservePoints(ids []string) (reservados []string, indisponiveis []string, err error) {
@@ -27,28 +54,30 @@ func ReservePoints(ids []string) (reservados []string, indisponiveis []string, e
 	}
 	var statusList []pontoStatus
 
-	// 1. Verifica disponibilidade de todos os pontos
+	// 1. Verifica disponibilidade de todos os pontos (NÃO reserva ainda)
 	for _, id := range ids {
 		found := false
-		for i, ponto := range database.Pontos {
+		for _, ponto := range database.Pontos {
 			if ponto.ID == id {
-				fmt.Printf("ID: %s, EmpresaID do ponto: %s, NomeEmpresa config: %s\n", id, ponto.EmpresaID, config.NomeEmpresa)
 				found = true
 				if isPontoDaEmpresa(ponto) {
-					// Reserva local
 					if ponto.Disponivel {
-						database.Pontos[i].Disponivel = false
-						reservados = append(reservados, id)
+						statusList = append(statusList, pontoStatus{id, true, true})
+						println("[DEBUG] Ponto", id, "(local)", "DISPONÍVEL")
 					} else {
 						statusList = append(statusList, pontoStatus{id, true, false})
+						println("[DEBUG] Ponto", id, "(local)", "INDISPONÍVEL")
 					}
 				} else {
-					// Reserva remota via MQTT
-					ok := mqtt.SolicitarReservaRemota(id, ponto.EmpresaID)
+					// Verifica disponibilidade remota via MQTT
+					nomeEmpresa := getEmpresaNomeDoID(ponto.EmpresaID)
+					println("[DEBUG] Testando disponibilidade remota ponto:", id, "empresa:", nomeEmpresa, "EmpresaID:", ponto.EmpresaID)
+					ok := mqtt.TestarDisponibilidadeRemota(id, nomeEmpresa)
+					statusList = append(statusList, pontoStatus{id, false, ok})
 					if ok {
-						reservados = append(reservados, id)
+						println("[DEBUG] Ponto", id, "(remoto)", "DISPONÍVEL")
 					} else {
-						statusList = append(statusList, pontoStatus{id, false, false})
+						println("[DEBUG] Ponto", id, "(remoto)", "INDISPONÍVEL ou FALHA MQTT")
 					}
 				}
 				break
@@ -56,15 +85,18 @@ func ReservePoints(ids []string) (reservados []string, indisponiveis []string, e
 		}
 		if !found {
 			statusList = append(statusList, pontoStatus{id, false, false})
+			println("[DEBUG] Ponto", id, "NÃO ENCONTRADO")
 		}
 	}
 
 	// 2. Se algum indisponível, retorna erro
 	for _, st := range statusList {
 		if !st.disponivel {
+			println("[DEBUG] Algum ponto está indisponível. Nenhum será reservado.")
 			for _, s := range statusList {
 				if !s.disponivel {
 					indisponiveis = append(indisponiveis, s.id)
+					println("[DEBUG] Indisponível:", s.id)
 				}
 			}
 			err = errors.New("nenhum ponto foi reservado")
@@ -78,20 +110,29 @@ func ReservePoints(ids []string) (reservados []string, indisponiveis []string, e
 			for i, ponto := range database.Pontos {
 				if ponto.ID == st.id {
 					database.Pontos[i].Disponivel = false
+					AtualizarDisponibilidadeNasRotas(st.id, false)
 					reservados = append(reservados, st.id)
+					println("[DEBUG] Reservado local:", st.id)
 					break
 				}
 			}
 		} else {
-			ok := mqtt.SolicitarReservaRemota(st.id, "empresa_id_aqui") // Ajuste para pegar o EmpresaID correto
+			nomeEmpresa := getEmpresaNomeDoID(getEmpresaIDDoPonto(st.id))
+			println("[DEBUG] Solicitando reserva remota ponto:", st.id, "empresa:", nomeEmpresa)
+			ok := mqtt.SolicitarReservaRemota(st.id, nomeEmpresa)
 			if ok {
+				AtualizarDisponibilidadeNasRotas(st.id, false)
 				reservados = append(reservados, st.id)
+				println("[DEBUG] Reservado remoto:", st.id)
 			} else {
 				// Rollback: desfaz reservas locais já feitas
+				println("[DEBUG] Falha ao reservar remoto:", st.id, "- iniciando rollback")
 				for _, rid := range reservados {
 					for i, ponto := range database.Pontos {
 						if ponto.ID == rid {
 							database.Pontos[i].Disponivel = true
+							AtualizarDisponibilidadeNasRotas(rid, true)
+							println("[DEBUG] Rollback liberado:", rid)
 						}
 					}
 				}
@@ -101,5 +142,16 @@ func ReservePoints(ids []string) (reservados []string, indisponiveis []string, e
 			}
 		}
 	}
+	println("[DEBUG] Todos os pontos reservados com sucesso:", reservados)
 	return reservados, nil, nil
+}
+
+// Função auxiliar para buscar o EmpresaID de um ponto
+func getEmpresaIDDoPonto(pontoID string) string {
+	for _, ponto := range database.Pontos {
+		if ponto.ID == pontoID {
+			return ponto.EmpresaID
+		}
+	}
+	return ""
 }

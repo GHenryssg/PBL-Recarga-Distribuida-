@@ -16,8 +16,6 @@ services:
       - default
     depends_on:
       - mqtt_broker
-    volumes:
-      - ./.env:/app/.env
 
   # Serviço para a Empresa B
   empresa_b:
@@ -36,8 +34,6 @@ services:
       - default
     depends_on:
       - mqtt_broker
-    volumes:
-      - ./.env:/app/.env
 
   # Serviço para a Empresa C
   empresa_c:
@@ -56,8 +52,6 @@ services:
       - default
     depends_on:
       - mqtt_broker
-    volumes:
-      - ./.env:/app/.env
 
   # Serviço MQTT Broker usando Mosquitto
   mqtt_broker:

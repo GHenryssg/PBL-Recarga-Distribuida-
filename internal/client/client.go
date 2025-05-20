@@ -61,7 +61,10 @@ func StartMQTT(brokerURL string) {
 	})
 
 	// Handler para reservas remotas de pontos
-	client.Subscribe("empresa/"+config.NomeEmpresa+"/reserva", 0, func(client mqtt.Client, msg mqtt.Message) {
+	topicReserva := "empresa/" + config.NomeEmpresa + "/reserva"
+	fmt.Println("[MQTT] Subscribed to:", topicReserva)
+	client.Subscribe(topicReserva, 0, func(client mqtt.Client, msg mqtt.Message) {
+		fmt.Println("[MQTT] Mensagem de reserva recebida neste container!", config.NomeEmpresa)
 		var req struct {
 			PontoID   string `json:"ponto_id"`
 			EmpresaID string `json:"empresa_id"`
@@ -72,19 +75,61 @@ func StartMQTT(brokerURL string) {
 			fmt.Println("Erro ao decodificar reserva remota:", err)
 			return
 		}
-		reservado := false
+		if req.Acao == "liberar" {
+			fmt.Printf("[MQTT] Pedido de liberação recebido para ponto %s neste container (%s)\n", req.PontoID, config.NomeEmpresa)
+			liberado := false
+			for i, ponto := range database.Pontos {
+				if ponto.ID == req.PontoID && (ponto.EmpresaID == config.NomeEmpresa || ponto.EmpresaID == config.EmpresaNomeParaID[config.NomeEmpresa]) {
+					database.Pontos[i].Disponivel = true
+					for r := range database.Rotas {
+						for p := range database.Rotas[r].Pontos {
+							if database.Rotas[r].Pontos[p].ID == req.PontoID {
+								database.Rotas[r].Pontos[p].Disponivel = true
+							}
+						}
+					}
+					fmt.Printf("[MQTT] Ponto %s liberado remotamente e marcado como disponível nas rotas.\n", req.PontoID)
+					liberado = true
+					break
+				}
+			}
+			if !liberado {
+				fmt.Printf("[MQTT] Liberação: ponto %s NÃO encontrado ou NÃO pertence a esta empresa (%s)\n", req.PontoID, config.NomeEmpresa)
+			}
+			return
+		}
 		for i, ponto := range database.Pontos {
-			if ponto.ID == req.PontoID && ponto.EmpresaID == config.NomeEmpresa && ponto.Disponivel {
+			fmt.Printf("[MQTT] Verificando ponto %s: EmpresaID=%s NomeEmpresa=%s Disponivel=%v\n", ponto.ID, ponto.EmpresaID, config.NomeEmpresa, ponto.Disponivel)
+			if ponto.ID == req.PontoID && (ponto.EmpresaID == config.NomeEmpresa || ponto.EmpresaID == config.EmpresaNomeParaID[config.NomeEmpresa]) && ponto.Disponivel {
 				database.Pontos[i].Disponivel = false
-				reservado = true
-				break
+				// Atualiza também nas rotas para manter consistência (sem ciclo de importação)
+				for r := range database.Rotas {
+					for p := range database.Rotas[r].Pontos {
+						if database.Rotas[r].Pontos[p].ID == req.PontoID {
+							database.Rotas[r].Pontos[p].Disponivel = false
+						}
+					}
+				}
+				fmt.Printf("[MQTT] Ponto %s reservado remotamente e marcado como indisponível nas rotas.\n", req.PontoID)
+				resp := models.ReservaPontoResponse{
+					PontoID:    req.PontoID,
+					EmpresaID:  config.NomeEmpresa,
+					Reservado:  true,
+					Disponivel: true,
+					Mensagem:   "",
+				}
+				payload, _ := json.Marshal(resp)
+				respTopic := "empresa/" + req.Origem + "/resposta/" + req.PontoID
+				client.Publish(respTopic, 0, false, payload)
+				return
 			}
 		}
+		// Se não encontrou ou não conseguiu reservar, responde negativo
 		resp := models.ReservaPontoResponse{
 			PontoID:    req.PontoID,
 			EmpresaID:  config.NomeEmpresa,
-			Reservado:  reservado,
-			Disponivel: reservado,
+			Reservado:  false,
+			Disponivel: false,
 			Mensagem:   "",
 		}
 		payload, _ := json.Marshal(resp)
@@ -123,7 +168,10 @@ func SolicitarReservaRemota(pontoID, empresaID string) bool {
 	// Handler de resposta
 	token := mqttClient.Subscribe(respTopic, 0, func(client mqtt.Client, msg mqtt.Message) {
 		var resp models.ReservaPontoResponse
-		if err := json.Unmarshal(msg.Payload(), &resp); err == nil && resp.PontoID == pontoID {
+		err := json.Unmarshal(msg.Payload(), &resp)
+		fmt.Printf("[MQTT][DEBUG] Resposta recebida para ponto %s: err=%v, resp=%+v\n", pontoID, err, resp)
+		if err == nil && resp.PontoID == pontoID {
+			fmt.Printf("[MQTT][DEBUG] Valor de resp.Reservado para ponto %s: %v\n", pontoID, resp.Reservado)
 			ch <- resp.Reservado
 		} else {
 			ch <- false
@@ -141,6 +189,34 @@ func SolicitarReservaRemota(pontoID, empresaID string) bool {
 		return ok
 	// Timeout de 3 segundos
 	case <-time.After(3 * time.Second):
+		mqttClient.Unsubscribe(respTopic)
+		return false
+	}
+}
+
+// Solicita liberação remota de um ponto para outra empresa via MQTT
+func SolicitarLiberacaoRemota(pontoID, empresaID string) bool {
+	req := map[string]interface{}{
+		"ponto_id":   pontoID,
+		"empresa_id": empresaID,
+		"acao":       "liberar",
+		"origem":     config.NomeEmpresa,
+	}
+	payload, _ := json.Marshal(req)
+	reqTopic := "empresa/" + empresaID + "/reserva"
+	respTopic := "empresa/" + config.NomeEmpresa + "/resposta/" + pontoID
+
+	ch := make(chan bool, 1)
+	token := mqttClient.Subscribe(respTopic, 0, func(client mqtt.Client, msg mqtt.Message) {
+		ch <- true // Não precisa de resposta detalhada para liberação
+	})
+	token.Wait()
+	mqttClient.Publish(reqTopic, 0, false, payload)
+	select {
+	case <-ch:
+		mqttClient.Unsubscribe(respTopic)
+		return true
+	case <-time.After(2 * time.Second):
 		mqttClient.Unsubscribe(respTopic)
 		return false
 	}
