@@ -102,7 +102,6 @@ func StartMQTT(brokerURL string) {
 			fmt.Printf("[MQTT] Verificando ponto %s: EmpresaID=%s NomeEmpresa=%s Disponivel=%v\n", ponto.ID, ponto.EmpresaID, config.NomeEmpresa, ponto.Disponivel)
 			if ponto.ID == req.PontoID && (ponto.EmpresaID == config.NomeEmpresa || ponto.EmpresaID == config.EmpresaNomeParaID[config.NomeEmpresa]) && ponto.Disponivel {
 				database.Pontos[i].Disponivel = false
-				// Atualiza também nas rotas para manter consistência (sem ciclo de importação)
 				for r := range database.Rotas {
 					for p := range database.Rotas[r].Pontos {
 						if database.Rotas[r].Pontos[p].ID == req.PontoID {
@@ -111,11 +110,18 @@ func StartMQTT(brokerURL string) {
 					}
 				}
 				fmt.Printf("[MQTT] Ponto %s reservado remotamente e marcado como indisponível nas rotas.\n", req.PontoID)
-				resp := models.ReservaPontoResponse{
+				// Envia resposta positiva imediatamente e retorna
+				resp := struct {
+					PontoID    string `json:"ponto_id"`
+					EmpresaID  string `json:"empresa_id"`
+					Disponivel bool   `json:"disponivel"`
+					Reservado  bool   `json:"reservado"`
+					Mensagem   string `json:"mensagem"`
+				}{
 					PontoID:    req.PontoID,
 					EmpresaID:  config.NomeEmpresa,
+					Disponivel: false,
 					Reservado:  true,
-					Disponivel: true,
 					Mensagem:   "",
 				}
 				payload, _ := json.Marshal(resp)
@@ -125,12 +131,18 @@ func StartMQTT(brokerURL string) {
 			}
 		}
 		// Se não encontrou ou não conseguiu reservar, responde negativo
-		resp := models.ReservaPontoResponse{
+		resp := struct {
+			PontoID    string `json:"ponto_id"`
+			EmpresaID  string `json:"empresa_id"`
+			Disponivel bool   `json:"disponivel"`
+			Reservado  bool   `json:"reservado"`
+			Mensagem   string `json:"mensagem"`
+		}{
 			PontoID:    req.PontoID,
 			EmpresaID:  config.NomeEmpresa,
+			Disponivel: true,
 			Reservado:  false,
-			Disponivel: false,
-			Mensagem:   "",
+			Mensagem:   "Ponto indisponível ou não pertence a esta empresa.",
 		}
 		payload, _ := json.Marshal(resp)
 		respTopic := "empresa/" + req.Origem + "/resposta/" + req.PontoID
@@ -186,6 +198,8 @@ func SolicitarReservaRemota(pontoID, empresaID string) bool {
 	select {
 	case ok := <-ch:
 		mqttClient.Unsubscribe(respTopic)
+		// Pequeno delay para evitar race condition entre múltiplos subscribes
+		time.Sleep(100 * time.Millisecond)
 		return ok
 	// Timeout de 3 segundos
 	case <-time.After(3 * time.Second):

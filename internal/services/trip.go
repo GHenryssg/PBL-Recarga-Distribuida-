@@ -1,7 +1,9 @@
 package services
 
 import (
-	mqtt "github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/client"
+	"fmt"
+	"net/http"
+
 	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/database"
 	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/models"
 )
@@ -33,26 +35,31 @@ func contemLocal(pontos []models.PontoRecarga, local string) bool {
 
 func CancelarReservas(ids []string) {
 	for _, id := range ids {
-		liberado := false
 		for i := range database.Pontos {
 			if database.Pontos[i].ID == id {
-				// Se for ponto local, libera normalmente
 				if isPontoDaEmpresa(database.Pontos[i]) {
 					database.Pontos[i].Disponivel = true
 					AtualizarDisponibilidadeNasRotas(id, true)
-					liberado = true
 					break
 				} else {
-					// Se for remoto, envia mensagem MQTT para liberar
-					nomeEmpresa := getEmpresaNomeDoID(database.Pontos[i].EmpresaID)
-					mqtt.SolicitarLiberacaoRemota(id, nomeEmpresa)
-					liberado = true
+					// Se for remoto, faz requisição HTTP para liberar via endpoint /cancel-reservation/:id
+					empresaURL := getEmpresaURLDoPonto(database.Pontos[i].EmpresaID)
+					if empresaURL != "" {
+						urlCancel := fmt.Sprintf("%s/cancel-reservation/%s", empresaURL, id)
+						req, _ := http.NewRequest("POST", urlCancel, nil)
+						resp, err := http.DefaultClient.Do(req)
+						if err == nil && resp.StatusCode == 200 {
+							// Atualiza localmente também para refletir o estado
+							database.Pontos[i].Disponivel = true
+							AtualizarDisponibilidadeNasRotas(id, true)
+						}
+						if resp != nil {
+							resp.Body.Close()
+						}
+					}
 					break
 				}
 			}
-		}
-		if !liberado {
-			println("[DEBUG] CancelarReservas: ponto", id, "não encontrado para liberar")
 		}
 	}
 }

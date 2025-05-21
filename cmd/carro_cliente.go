@@ -33,7 +33,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	servidor := os.Getenv("SERVER_URL")
 	if servidor == "" {
-		servidor = "http://localhost:8081"
+		servidor = "http://localhost:8085"
 	}
 
 	// 1. Buscar rotas disponíveis
