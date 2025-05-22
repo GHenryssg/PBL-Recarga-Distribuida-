@@ -6,9 +6,9 @@ services:
       - NOME_EMPRESA=empresa_a
       - PORTA=8085
       - MQTT_BROKER=tcp://mqtt_broker:1883
-      - EMPRESA_A_URL=http://empresa_a:8085
-      - EMPRESA_B_URL=http://empresa_b:8086
-      - EMPRESA_C_URL=http://empresa_c:8087
+      - EMPRESA_A_URL=<IP_PC1>:8085
+      - EMPRESA_B_URL=<IP_PC2>:8086
+      - EMPRESA_C_URL=<IP_PC3>:8087
     ports:
       - "8085:8085"
     networks:
@@ -22,10 +22,10 @@ services:
     environment:
       - NOME_EMPRESA=empresa_b
       - PORTA=8086
-      - MQTT_BROKER=tcp://mqtt_broker:1883
-      - EMPRESA_A_URL=http://empresa_a:8085
-      - EMPRESA_B_URL=http://empresa_b:8086
-      - EMPRESA_C_URL=http://empresa_c:8087
+      - MQTT_BROKER=tcp://<IP_PC1>:1883
+      - EMPRESA_A_URL=<IP_PC1>:8085
+      - EMPRESA_B_URL=<IP_PC2>:8086
+      - EMPRESA_C_URL=<IP_PC3>:8087
     ports:
       - "8086:8086"
     networks:
@@ -39,10 +39,10 @@ services:
     environment:
       - NOME_EMPRESA=empresa_c
       - PORTA=8087
-      - MQTT_BROKER=tcp://mqtt_broker:1883
-      - EMPRESA_A_URL=http://empresa_a:8085
-      - EMPRESA_B_URL=http://empresa_b:8086
-      - EMPRESA_C_URL=http://empresa_c:8087
+      - MQTT_BROKER=tcp://<IP_PC1>:1883
+      - EMPRESA_A_URL=<IP_PC1>:8085
+      - EMPRESA_B_URL=<IP_PC2>:8086
+      - EMPRESA_C_URL=<IP_PC3>:8087
     ports:
       - "8087:8087"
     networks:
@@ -57,6 +57,18 @@ services:
       - "1883:1883"
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      - default
+
+  carro_cliente:
+    build:
+      context: .
+      dockerfile: Dockerfile.carro_cliente
+    container_name: carro_cliente
+    environment:
+      - SERVER_URL=http://<IP_PC1>:8085
+    depends_on:
+      - empresa_a
     networks:
       - default
 
