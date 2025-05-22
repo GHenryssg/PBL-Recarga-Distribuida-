@@ -174,3 +174,112 @@ func getEmpresaURLDoPonto(empresaID string) string {
 	}
 	return ""
 }
+
+// Função para cancelar reservas de múltiplos pontos (local e remoto)
+func CancelPoints(ids []string) (cancelados []string, naoCancelados []string, err error) {
+	type pontoStatus struct {
+		id    string
+		local bool
+		ok    bool
+	}
+	var statusList []pontoStatus
+
+	// 1. Verifica se todos os pontos existem
+	for _, id := range ids {
+		found := false
+		for _, ponto := range database.Pontos {
+			if ponto.ID == id {
+				found = true
+				if isPontoDaEmpresa(ponto) {
+					if !ponto.Disponivel {
+						statusList = append(statusList, pontoStatus{id, true, true})
+					} else {
+						statusList = append(statusList, pontoStatus{id, true, false})
+					}
+				} else {
+					empresaURL := getEmpresaURLDoPonto(ponto.EmpresaID)
+					if empresaURL == "" {
+						statusList = append(statusList, pontoStatus{id, false, false})
+						continue
+					}
+					// Consulta status remoto
+					resp, err := http.Get(fmt.Sprintf("%s/points", empresaURL))
+					if err != nil {
+						statusList = append(statusList, pontoStatus{id, false, false})
+						continue
+					}
+					body, _ := ioutil.ReadAll(resp.Body)
+					resp.Body.Close()
+					var pontosRemotos []models.PontoRecarga
+					json.Unmarshal(body, &pontosRemotos)
+					ok := false
+					for _, pr := range pontosRemotos {
+						if pr.ID == id && !pr.Disponivel {
+							ok = true
+							break
+						}
+					}
+					statusList = append(statusList, pontoStatus{id, false, ok})
+				}
+				break
+			}
+		}
+		if !found {
+			statusList = append(statusList, pontoStatus{id, false, false})
+		}
+	}
+
+	// 2. Se algum não está reservado, retorna erro
+	for _, st := range statusList {
+		if !st.ok {
+			for _, s := range statusList {
+				if !s.ok {
+					naoCancelados = append(naoCancelados, s.id)
+				}
+			}
+			err = errors.New("nenhum ponto foi cancelado")
+			return nil, naoCancelados, err
+		}
+	}
+
+	// 3. Cancela todos (agora é garantido que todos estão reservados)
+	for _, st := range statusList {
+		if st.local {
+			for i, ponto := range database.Pontos {
+				if ponto.ID == st.id {
+					database.Pontos[i].Disponivel = true
+					AtualizarDisponibilidadeNasRotas(st.id, true)
+					cancelados = append(cancelados, st.id)
+					break
+				}
+			}
+		} else {
+			empresaURL := getEmpresaURLDoPonto(getEmpresaIDDoPonto(st.id))
+			if empresaURL == "" {
+				naoCancelados = append(naoCancelados, st.id)
+				err = errors.New("nenhum ponto foi cancelado")
+				return nil, naoCancelados, err
+			}
+			urlCancel := fmt.Sprintf("%s/cancel-reservation/%s", empresaURL, st.id)
+			req, _ := http.NewRequest("POST", urlCancel, nil)
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				naoCancelados = append(naoCancelados, st.id)
+				err = errors.New("nenhum ponto foi cancelado")
+				return nil, naoCancelados, err
+			}
+			defer resp.Body.Close()
+			var resultado map[string]interface{}
+			json.NewDecoder(resp.Body).Decode(&resultado)
+			if _, ok := resultado["cancelados"]; ok {
+				AtualizarDisponibilidadeNasRotas(st.id, true)
+				cancelados = append(cancelados, st.id)
+			} else {
+				naoCancelados = append(naoCancelados, st.id)
+				err = errors.New("nenhum ponto foi cancelado")
+				return nil, naoCancelados, err
+			}
+		}
+	}
+	return cancelados, nil, nil
+}

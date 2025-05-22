@@ -141,14 +141,14 @@ func main() {
 	}
 	fmt.Println("Viagem concluída!")
 
-	// 6. Liberar os pontos (cancelar reservas)
-	urlCancel := fmt.Sprintf("%s/cancel-reservation", servidor)
-	ids := make([]string, len(pontosEscolhidos))
+	// 6. Liberar os pontos (cancelar reservas) usando o novo endpoint sequencial
+	idsParaCancelar := make([]string, len(pontosEscolhidos))
 	for i, ponto := range pontosEscolhidos {
-		ids[i] = ponto.ID
+		idsParaCancelar[i] = ponto.ID
 	}
-	body := fmt.Sprintf(`{"ids":%s}`, toJSON(ids))
-	respCancel, err := http.Post(urlCancel, "application/json", strings.NewReader(body))
+	urlCancel := fmt.Sprintf("%s/cancel-reservation/%s", servidor, strings.Join(idsParaCancelar, ","))
+	reqCancel, _ := http.NewRequest("POST", urlCancel, nil)
+	respCancel, err := http.DefaultClient.Do(reqCancel)
 	if err != nil {
 		panic(err)
 	}
