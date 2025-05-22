@@ -126,6 +126,8 @@ func main() {
 
 	// 5. Simular viagem em partes
 	// A viagem é simulada em trechos, com tempos aleatórios entre os pontos
+	bateria := 100    // porcentagem inicial da bateria
+	consumoPorKm := 2 // consumo de bateria por km em %
 	fmt.Println("\nIniciando a viagem...")
 	for i := 0; i < len(pontosEscolhidos); i++ {
 		var origem, destino string
@@ -136,12 +138,32 @@ func main() {
 		}
 		destino = pontosEscolhidos[i].Localizacao
 
+		distancia := rand.Intn(16) + 5 // distância aleatória entre 5 e 20 km
+		consumoTrecho := distancia * consumoPorKm
+
+		fmt.Printf("Bateria antes do trecho: %d%%\n", bateria)
+		fmt.Printf("Trecho de %s para %s: %d km, consumo estimado: %d%%\n", origem, destino, distancia, consumoTrecho)
+		if bateria <= 0 {
+			fmt.Println("Bateria esgotada! Viagem interrompida.")
+			break
+		}
+
 		duracao := rand.Intn(3) + 7 // Tempo entre 3 e 7 segundos para cada trecho
 		fmt.Printf("Viajando de %s para %s...\n", origem, destino)
 		time.Sleep(time.Duration(duracao) * time.Second)
-		fmt.Printf("Chegou em %s!\n", destino)
+		bateria -= consumoTrecho
+		if bateria < 0 {
+			bateria = 0
+		}
+		fmt.Printf("Pagamento efetivado! Chegou em %s! Bateria restante: %d%%\n", destino, bateria)
+		if bateria == 0 {
+			fmt.Println("Bateria esgotada! Viagem encerrada.")
+			break
+		}
 	}
-	fmt.Println("Viagem concluída!")
+	if bateria > 0 {
+		fmt.Println("Viagem concluída!")
+	}
 
 	// 6. Liberar os pontos (cancelar reservas) usando o novo endpoint sequencial
 	// O cliente realiza uma requisição para liberar os pontos reservados
