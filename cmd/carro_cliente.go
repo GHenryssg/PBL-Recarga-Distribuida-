@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"github.com/eclipse/paho.mqtt.golang"
 )
 
 type PontoRecarga struct {
@@ -29,7 +30,39 @@ func toJSON(data interface{}) string {
 	return string(bytes)
 }
 
+var mqttClient mqtt.Client
+
+func initMQTT() {
+    opts := mqtt.NewClientOptions().AddBroker("tcp://localhost:1883") // Substitua pelo endereço do seu broker MQTT
+    opts.SetClientID("carro_cliente")
+    mqttClient = mqtt.NewClient(opts)
+    if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
+        panic(token.Error())
+    }
+    fmt.Println("Conectado ao broker MQTT")
+}
+
+
+// Adicionar função para reservar ponto via MQTT
+func reservarPontoViaMQTT(pontoID string) {
+    topic := fmt.Sprintf("empresa/%s/reserva", pontoID)
+    mensagem := fmt.Sprintf(`{"ponto_id": "%s", "acao": "reservar"}`, pontoID)
+    token := mqttClient.Publish(topic, 0, false, mensagem)
+    token.Wait()
+    if token.Error() != nil {
+        fmt.Printf("Erro ao publicar no tópico %s: %v\n", topic, token.Error())
+    } else {
+        fmt.Printf("Mensagem publicada no tópico %s: %s\n", topic, mensagem)
+    }
+}
+
+
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
+    // Inicializar o cliente MQTT
+    initMQTT()
+	
 	rand.Seed(time.Now().UnixNano())
 	servidor := os.Getenv("SERVER_URL")
 	if servidor == "" {
@@ -84,36 +117,11 @@ func main() {
 
 	//Fazer verificação se os pontos escolhidos estão disponíveis e mostrar sua disponibilidade nas outras empresas
 
-	// 4. Reservar os pontos via HTTP (requisição atômica, apenas exibe o resultado)
-	idsParaReservar := []string{}
-	for _, ponto := range pontosEscolhidos {
-		idsParaReservar = append(idsParaReservar, ponto.ID)
-	}
-	fmt.Printf("\nTentando reservar os pontos: %v\n", idsParaReservar)
-	urlReserva := fmt.Sprintf("%s/reserve-points/%s", servidor, strings.Join(idsParaReservar, ","))
-	req, _ := http.NewRequest("POST", urlReserva, nil)
-	respReserva, err := http.DefaultClient.Do(req)
-	if err != nil {
-		fmt.Printf("Erro ao reservar pontos: %v\n", err)
-		return
-	}
-	defer respReserva.Body.Close()
-	var resultado map[string]interface{}
-	json.NewDecoder(respReserva.Body).Decode(&resultado)
-	fmt.Println("\nResultado da reserva:")
-	if reservados, ok := resultado["reservados"]; ok {
-		fmt.Printf("  Reservados: %v\n", reservados)
-	}
-	if indisponiveis, ok := resultado["indisponiveis"]; ok {
-		fmt.Printf("  Indisponíveis: %v\n", indisponiveis)
-	}
-	if erro, ok := resultado["erro"]; ok {
-		fmt.Printf("  Erro: %v\n", erro)
-	}
-	if _, ok := resultado["reservados"]; !ok {
-		fmt.Println("Nenhum ponto foi reservado. Encerrando fluxo.")
-		return
-	}
+    // 4. Reservar os pontos via MQTT
+    fmt.Println("\nReservando os pontos ...")
+    for _, ponto := range pontosEscolhidos {
+        reservarPontoViaMQTT(ponto.ID)
+    }
 
 	// 5. Simular viagem em partes
 	fmt.Println("\nIniciando a viagem...")
