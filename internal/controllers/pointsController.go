@@ -36,3 +36,22 @@ func PostPoints(c *gin.Context) {
 		"indisponiveis": indisponiveis,
 	})
 }
+
+// Endpoint para cancelar reservas por lista de IDs na URL
+func CancelPointsByIDs(c *gin.Context) {
+	idsParam := c.Param("ids")
+	if idsParam == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": "IDs não informados"})
+		return
+	}
+	ids := strings.Split(idsParam, ",")
+	cancelados, naoCancelados, err := services.CancelPoints(ids)
+	if err != nil {
+		c.JSON(http.StatusConflict, gin.H{"erro": err.Error(), "nao_cancelados": naoCancelados})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"cancelados":     cancelados,
+		"nao_cancelados": naoCancelados,
+	})
+}
