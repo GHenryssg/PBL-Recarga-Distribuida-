@@ -8,6 +8,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Controller de pontos: expõe endpoints HTTP para listar, reservar e cancelar pontos de recarga
+// Chama os serviços de pontos, que implementam a lógica de reserva atômica, rollback e coordenação distribuída
+// Também pode ser chamado indiretamente via MQTT, quando o backend recebe mensagens de reserva/cancelamento
+
 func GetAllPoints(c *gin.Context) {
 	points := services.GetAllPoints()
 	c.JSON(http.StatusOK, points)
@@ -26,6 +30,7 @@ func PostPoints(c *gin.Context) {
 			ids = append(ids, trimmed)
 		}
 	}
+	// Chama o serviço de reserva, que pode envolver coordenação com outros servidores via HTTP/MQTT
 	reservados, indisponiveis, err := services.ReservePoints(ids)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"erro": err.Error()})
@@ -38,6 +43,7 @@ func PostPoints(c *gin.Context) {
 }
 
 // Endpoint para cancelar reservas por lista de IDs na URL
+// Chama o serviço de cancelamento, que pode acionar outros servidores via HTTP/MQTT
 func CancelPointsByIDs(c *gin.Context) {
 	idsParam := c.Param("ids")
 	if idsParam == "" {

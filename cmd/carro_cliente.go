@@ -10,6 +10,12 @@ import (
 	"time"
 )
 
+// Estrutura que representa um ponto de recarga retornado pelo backend
+// Comunicação cliente-servidor ocorre via HTTP e MQTT
+// O cliente pode buscar rotas, reservar e cancelar pontos
+// Comunicação HTTP: GET /routes, POST /reserve, POST /cancel
+// Comunicação MQTT: tópicos de reserva/cancelamento
+
 type PontoRecarga struct {
 	ID          string `json:"id"`
 	Localizacao string `json:"localizacao"`
@@ -37,6 +43,8 @@ func main() {
 	}
 
 	// 1. Buscar rotas disponíveis
+	// Aqui o cliente consulta o backend para obter todas as rotas possíveis
+	// O backend pode consultar outros servidores para montar rotas distribuídas
 	resp, err := http.Get(servidor + "/routes")
 	if err != nil {
 		panic(err)
@@ -84,7 +92,8 @@ func main() {
 
 	//Fazer verificação se os pontos escolhidos estão disponíveis e mostrar sua disponibilidade nas outras empresas
 
-	// 4. Reservar os pontos via HTTP (requisição atômica, apenas exibe o resultado)
+	// 4. Reservar os pontos (requisição atômica, apenas exibe o resultado)
+	// O cliente realiza uma requisição para reservar os pontos escolhidos
 	idsParaReservar := []string{}
 	for _, ponto := range pontosEscolhidos {
 		idsParaReservar = append(idsParaReservar, ponto.ID)
@@ -116,6 +125,7 @@ func main() {
 	}
 
 	// 5. Simular viagem em partes
+	// A viagem é simulada em trechos, com tempos aleatórios entre os pontos
 	fmt.Println("\nIniciando a viagem...")
 	for i := 0; i < len(pontosEscolhidos); i++ {
 		var origem, destino string
@@ -134,6 +144,7 @@ func main() {
 	fmt.Println("Viagem concluída!")
 
 	// 6. Liberar os pontos (cancelar reservas) usando o novo endpoint sequencial
+	// O cliente realiza uma requisição para liberar os pontos reservados
 	idsParaCancelar := make([]string, len(pontosEscolhidos))
 	for i, ponto := range pontosEscolhidos {
 		idsParaCancelar[i] = ponto.ID

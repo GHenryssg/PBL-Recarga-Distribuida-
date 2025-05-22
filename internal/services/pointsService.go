@@ -13,13 +13,19 @@ import (
 	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/models"
 )
 
+// Lógica de reserva/cancelamento de pontos de recarga
+// Aqui ocorre a verificação de disponibilidade, reserva atômica e rollback
+// Comunicação entre servidores (empresas) ocorre via HTTP e MQTT
+// Se a reserva envolver múltiplas empresas, é feita uma coordenação distribuída
+// Se qualquer empresa recusar, ocorre rollback para garantir consistência
+
 func GetAllPoints() []models.PontoRecarga {
 	return database.Pontos
 }
 
 func isPontoDaEmpresa(ponto models.PontoRecarga) bool {
 	idEsperado := config.EmpresaNomeParaID[config.NomeEmpresa]
-	// Comparação robusta: aceita tanto nome quanto ID numérico
+	// Compara nome ou ID numérico
 	match := ponto.EmpresaID == config.NomeEmpresa || ponto.EmpresaID == idEsperado
 	return match
 }
