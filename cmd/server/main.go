@@ -1,8 +1,8 @@
 ﻿package main
 
 import (
+	mqtt "github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/client"
 	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/config"
-	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/mqtt"
 	"github.com/GHenryssg/PBL-Recarga-Distribuida-/internal/routes"
 	"github.com/gin-gonic/gin"
 )
@@ -10,16 +10,17 @@ import (
 func main() {
 	config.CarregarVariaveis()
 
-	// Use a variável global diretamente
+	// Inicializa o servidor MQTT para comunicação assíncrona (cliente-servidor e entre empresas)
+	// O backend escuta tópicos de reserva/cancelamento e responde via MQTT
 	go mqtt.StartMQTT(config.MQTTBrokerURL)
 
 	router := gin.Default()
 
-	// Configurar proxies confiáveis ou desativar o aviso
+	// Configura as rotas HTTP REST para comunicação síncrona
 	router.SetTrustedProxies(nil) // Desativa o aviso sobre proxies confiáveis
 
 	routes.ConfigurarRotas(router)
 
-	// Mesma coisa aqui: usar config.Porta diretamente
+	// Inicializa o backend na porta configurada
 	router.Run(":" + config.Porta)
 }
