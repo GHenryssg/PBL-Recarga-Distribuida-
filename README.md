@@ -183,6 +183,10 @@ Configurações específicas por empresa
 </table>
 
 
+## Relatório
+
+https://docs.google.com/document/d/1mdYN7GzqPe4rRb6YS7w0OCGlfZVUPxHl/edit?usp=drive_link&ouid=110915174731788891280&rtpof=true&sd=true
+
 <img width=100% src="https://capsule-render.vercel.app/api?type=waving&color=00FFFF&height=120&section=footer"/>
 
 <div align="center"> 
