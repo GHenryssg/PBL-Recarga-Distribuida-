@@ -153,9 +153,6 @@ Configurações específicas por empresa
 
 
 
-## Relatório
-
-
 ## **Alunos(as)**
 
 <table align='center'>
